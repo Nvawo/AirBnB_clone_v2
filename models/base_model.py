@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 """This module defines a base class for all hbnb models."""
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import Column, DateTime, String
 from sqlalchemy.ext.declarative import declarative_base
@@ -31,7 +31,7 @@ class BaseModel(Base):
         """Instantiates a new model."""
         self.id = str(uuid.uuid4())
         self.created_at = datetime.utcnow()
-        self.updated_at = datetime.utcnow()
+        self.updated_at = self.created_at + timedelta(microseconds=1)
 
         if hasattr(self, '__table__'):
             for column in self.__table__.columns:
