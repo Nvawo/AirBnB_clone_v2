@@ -2,6 +2,7 @@
 """Contains the entry point of the command interpreter."""
 import cmd
 import re
+import shlex
 
 from models import storage
 from models.base_model import BaseModel
@@ -21,10 +22,10 @@ class HBNBCommand(cmd.Cmd):
     classes = {
         "BaseModel": BaseModel,
         "User": User,
+        "Place": Place,
         "State": State,
         "City": City,
         "Amenity": Amenity,
-        "Place": Place,
         "Review": Review
     }
 
@@ -41,17 +42,107 @@ class HBNBCommand(cmd.Cmd):
         """Do nothing when an empty line is entered."""
         pass
 
+    def _parse_create_arguments(self, args):
+        """Parse create command parameters."""
+        lexer = shlex.shlex(args, posix=False)
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+
+        try:
+            parts = list(lexer)
+        except ValueError:
+            return []
+
+        if not parts:
+            return []
+
+        class_name = parts[0]
+
+        if class_name not in HBNBCommand.classes:
+            return parts
+
+        model = HBNBCommand.classes[class_name]
+        valid_keys = set()
+
+        if hasattr(model, "__table__"):
+            valid_keys = {
+                column.name for column in model.__table__.columns
+            }
+
+        if class_name == "Place":
+            valid_keys.add("amenity_ids")
+
+        parsed = [class_name]
+
+        for parameter in parts[1:]:
+            if "=" not in parameter:
+                continue
+
+            key, value = parameter.split("=", 1)
+
+            if key not in valid_keys:
+                continue
+
+            if not value:
+                continue
+
+            if value.startswith('"') and value.endswith('"'):
+                value = value[1:-1]
+                value = value.replace('\\"', '"')
+                value = value.replace("_", " ")
+                parsed.append((key, value))
+                continue
+
+            if re.fullmatch(r"[-+]?\d+", value):
+                parsed.append((key, int(value)))
+                continue
+
+            if re.fullmatch(
+                r"[-+]?(?:\d+\.\d*|\.\d+)",
+                value
+            ):
+                parsed.append((key, float(value)))
+                continue
+
+        return parsed
+
     def do_create(self, args):
-        """Create an object of any class."""
+        """Create an object with optional attributes."""
         if not args:
             print("** class name missing **")
             return
 
-        if args not in HBNBCommand.classes:
+        parsed = self._parse_create_arguments(args)
+
+        if not parsed:
+            print("** class name missing **")
+            return
+
+        class_name = parsed[0]
+
+        if class_name not in HBNBCommand.classes:
             print("** class doesn't exist **")
             return
 
-        new_instance = HBNBCommand.classes[args]()
+        attributes = {}
+
+        for parameter in parsed[1:]:
+            key, value = parameter
+            attributes[key] = value
+
+        try:
+            new_instance = HBNBCommand.classes[class_name](
+                **attributes
+            )
+        except (TypeError, KeyError):
+            new_instance = HBNBCommand.classes[class_name]()
+
+            for key, value in attributes.items():
+                try:
+                    setattr(new_instance, key, value)
+                except (AttributeError, TypeError):
+                    continue
+
         storage.new(new_instance)
         storage.save()
         print(new_instance.id)
@@ -223,42 +314,6 @@ class HBNBCommand(cmd.Cmd):
                         class_name,
                         match_id.group(1)
                     )
-
-            if command == "update":
-                match_id = re.search(
-                    r'id=["\']?([^,"\']+)["\']?',
-                    arguments
-                )
-                match_dict = re.search(
-                    r"\{(.*)\}",
-                    arguments
-                )
-
-                if match_id and match_dict:
-                    instance_id = match_id.group(1)
-                    dictionary = match_dict.group(1)
-
-                    pairs = re.findall(
-                        r'["\']([^"\']+)["\']\s*:\s*'
-                        r'(["\'].*?["\']|[^,]+)',
-                        dictionary
-                    )
-
-                    if pairs:
-                        commands = []
-
-                        for attribute, value in pairs:
-                            value = value.strip()
-                            commands.append(
-                                "update {} {} {} {}".format(
-                                    class_name,
-                                    instance_id,
-                                    attribute,
-                                    value
-                                )
-                            )
-
-                        return ";".join(commands)
 
         return line
 
