@@ -29,44 +29,36 @@ class BaseModel(Base):
 
     def __init__(self, *args, **kwargs):
         """Instantiates a new model."""
-        if not kwargs:
-            self.id = str(uuid.uuid4())
-            self.created_at = datetime.utcnow()
-            self.updated_at = datetime.utcnow()
+        self.id = str(uuid.uuid4())
+        self.created_at = datetime.utcnow()
+        self.updated_at = datetime.utcnow()
 
-            if hasattr(self, '__table__'):
-                for column in self.__table__.columns:
-                    if column.name in ('id', 'created_at', 'updated_at'):
-                        continue
+        if hasattr(self, '__table__'):
+            for column in self.__table__.columns:
+                if column.name in ('id', 'created_at', 'updated_at'):
+                    continue
 
-                    default = column.default
-                    if default is not None and default.is_scalar:
-                        setattr(self, column.name, default.arg)
+                default = column.default
+                if default is not None and default.is_scalar:
+                    setattr(self, column.name, default.arg)
 
-            from models import storage
-            storage.new(self)
-        else:
-            if 'id' not in kwargs:
-                self.id = str(uuid.uuid4())
+        if kwargs:
+            if 'id' in kwargs:
+                self.id = kwargs['id']
 
-            if 'created_at' not in kwargs:
-                self.created_at = datetime.utcnow()
-            elif isinstance(kwargs['created_at'], str):
-                kwargs['created_at'] = datetime.strptime(
-                    kwargs['created_at'],
-                    '%Y-%m-%dT%H:%M:%S.%f'
-                )
+            if 'created_at' in kwargs:
+                value = kwargs['created_at']
+                if isinstance(value, str):
+                    value = self._parse_datetime(value)
+                self.created_at = value
 
-            if 'updated_at' not in kwargs:
-                self.updated_at = datetime.utcnow()
-            elif isinstance(kwargs['updated_at'], str):
-                kwargs['updated_at'] = datetime.strptime(
-                    kwargs['updated_at'],
-                    '%Y-%m-%dT%H:%M:%S.%f'
-                )
+            if 'updated_at' in kwargs:
+                value = kwargs['updated_at']
+                if isinstance(value, str):
+                    value = self._parse_datetime(value)
+                self.updated_at = value
 
-            if '__class__' in kwargs:
-                del kwargs['__class__']
+            kwargs.pop('__class__', None)
 
             allowed = {
                 'id',
@@ -97,6 +89,22 @@ class BaseModel(Base):
                     raise KeyError(key)
                 setattr(self, key, value)
 
+        from models import storage
+
+        if storage.__class__.__name__ == 'FileStorage':
+            storage.new(self)
+
+    @staticmethod
+    def _parse_datetime(value):
+        """Convert an ISO formatted string to a datetime object."""
+        try:
+            return datetime.strptime(
+                value,
+                '%Y-%m-%dT%H:%M:%S.%f'
+            )
+        except ValueError:
+            return datetime.fromisoformat(value)
+
     def __str__(self):
         """Returns a string representation of the instance."""
         cls = (str(type(self)).split('.')[-1]).split("'")[0]
@@ -119,6 +127,13 @@ class BaseModel(Base):
         dictionary.pop('_sa_instance_state', None)
 
         dictionary['__class__'] = type(self).__name__
+
+        if isinstance(self.created_at, str):
+            self.created_at = self._parse_datetime(self.created_at)
+
+        if isinstance(self.updated_at, str):
+            self.updated_at = self._parse_datetime(self.updated_at)
+
         dictionary['created_at'] = self.created_at.isoformat()
         dictionary['updated_at'] = self.updated_at.isoformat()
 
