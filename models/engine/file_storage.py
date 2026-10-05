@@ -50,6 +50,19 @@ class FileStorage:
         with open(self.__file_path, "w") as file:
             json.dump(objects, file)
 
+    def delete(self, obj=None):
+        """Deletes obj from storage if it exists."""
+        if obj is None:
+            return
+
+        key = "{}.{}".format(
+            obj.__class__.__name__,
+            obj.id
+        )
+
+        if key in self.__objects:
+            del self.__objects[key]
+
     def reload(self):
         """Deserializes the JSON file."""
         classes = {
