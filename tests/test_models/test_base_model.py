@@ -2,6 +2,7 @@
 """ """
 from models.base_model import BaseModel
 import unittest
+import os
 import datetime
 from uuid import UUID
 import json
@@ -47,6 +48,10 @@ class test_basemodel(unittest.TestCase):
         with self.assertRaises(TypeError):
             new = BaseModel(**copy)
 
+    @unittest.skipIf(os.getenv('HBNB_TYPE_STORAGE') == 'db',
+                     'file.json is not used with DBStorage')
+    @unittest.skipIf(os.getenv('HBNB_TYPE_STORAGE') == 'db',
+                     'file.json is not used with DBStorage')
     def test_save(self):
         """ Testing save """
         i = self.value()

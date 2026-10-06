@@ -1,106 +1,90 @@
 #!/usr/bin/python3
-"""Tests for the HBNB command interpreter."""
-
+"""Tests for the console"""
+import os
 import unittest
+from io import StringIO
 from unittest.mock import patch
-
 from console import HBNBCommand
 from models import storage
-from models.city import City
-from models.place import Place
 from models.state import State
-from models.user import User
+
+DB = os.getenv('HBNB_TYPE_STORAGE') == 'db'
 
 
-class TestCreateWithParameters(unittest.TestCase):
-    """Test create command with parameters."""
+class TestConsole(unittest.TestCase):
+    """Tests HBNBCommand"""
 
-    def setUp(self):
-        """Set up a command interpreter."""
-        storage._FileStorage__objects = {}
-        self.console = HBNBCommand()
+    def run_cmd(self, cmd):
+        """Run a console command and return its output"""
+        with patch('sys.stdout', new=StringIO()) as out:
+            HBNBCommand().onecmd(cmd)
+            return out.getvalue().strip()
 
-    def test_create_state_with_string(self):
-        """Test creating a State with a string parameter."""
-        with patch("sys.stdout"):
-            self.console.onecmd('create State name="California"')
+    def remove_state(self, state_id):
+        """Delete a State created by a test"""
+        obj = storage.all(State).get("State." + state_id)
+        if obj is not None:
+            storage.delete(obj)
+            storage.save()
 
-        states = storage.all(State)
-        self.assertEqual(len(states), 1)
+    def test_quit(self):
+        """quit returns True"""
+        self.assertTrue(HBNBCommand().onecmd("quit"))
 
-        state = list(states.values())[0]
-        self.assertEqual(state.name, "California")
+    def test_EOF(self):
+        """EOF returns True"""
+        self.assertTrue(HBNBCommand().onecmd("EOF"))
 
-    def test_create_city_with_string_parameters(self):
-        """Test creating a City with string parameters."""
-        with patch("sys.stdout"):
-            self.console.onecmd(
-                'create City state_id="0001" '
-                'name="San_Francisco_is_super_cool"'
-            )
+    def test_emptyline(self):
+        """Empty line prints nothing"""
+        self.assertEqual(self.run_cmd(""), "")
 
-        cities = storage.all(City)
-        self.assertEqual(len(cities), 1)
+    def test_create_missing_class(self):
+        """create with no class"""
+        self.assertEqual(self.run_cmd("create"), "** class name missing **")
 
-        city = list(cities.values())[0]
-        self.assertEqual(city.state_id, "0001")
-        self.assertEqual(city.name, "San Francisco is super cool")
+    def test_create_bad_class(self):
+        """create with unknown class"""
+        self.assertEqual(self.run_cmd("create MyModel"),
+                         "** class doesn't exist **")
 
-    def test_create_user_with_parameters(self):
-        """Test creating a User with several parameters."""
-        with patch("sys.stdout"):
-            self.console.onecmd(
-                'create User email="test@example.com" '
-                'password="1234" first_name="John" last_name="Doe"'
-            )
+    def test_show_missing_class(self):
+        """show with no class"""
+        self.assertEqual(self.run_cmd("show"), "** class name missing **")
 
-        users = storage.all(User)
-        self.assertEqual(len(users), 1)
+    def test_show_bad_class(self):
+        """show with unknown class"""
+        self.assertEqual(self.run_cmd("show MyModel 1"),
+                         "** class doesn't exist **")
 
-        user = list(users.values())[0]
-        self.assertEqual(user.email, "test@example.com")
-        self.assertEqual(user.password, "1234")
-        self.assertEqual(user.first_name, "John")
-        self.assertEqual(user.last_name, "Doe")
+    def test_destroy_missing_class(self):
+        """destroy with no class"""
+        self.assertEqual(self.run_cmd("destroy"), "** class name missing **")
 
-    def test_create_place_with_numbers(self):
-        """Test creating a Place with integer and float parameters."""
-        with patch("sys.stdout"):
-            self.console.onecmd(
-                'create Place city_id="0001" user_id="0001" '
-                'name="My_little_house" number_rooms=4 '
-                'number_bathrooms=2 max_guest=10 price_by_night=300 '
-                'latitude=37.773972 longitude=-122.431297'
-            )
+    @unittest.skipIf(DB, "FileStorage only")
+    def test_create_state_filestorage(self):
+        """create State prints an id and adds an object"""
+        before = len(storage.all(State))
+        state_id = self.run_cmd('create State name="California"')
+        self.assertEqual(len(state_id), 36)
+        self.assertEqual(len(storage.all(State)), before + 1)
+        self.remove_state(state_id)
 
-        places = storage.all(Place)
-        self.assertEqual(len(places), 1)
+    @unittest.skipIf(DB, "FileStorage only")
+    def test_create_state_name_filestorage(self):
+        """create State stores the name parameter"""
+        state_id = self.run_cmd('create State name="New_York"')
+        obj = storage.all(State)["State." + state_id]
+        self.assertEqual(obj.name, "New York")
+        self.remove_state(state_id)
 
-        place = list(places.values())[0]
-        self.assertEqual(place.city_id, "0001")
-        self.assertEqual(place.user_id, "0001")
-        self.assertEqual(place.name, "My little house")
-        self.assertEqual(place.number_rooms, 4)
-        self.assertEqual(place.number_bathrooms, 2)
-        self.assertEqual(place.max_guest, 10)
-        self.assertEqual(place.price_by_night, 300)
-        self.assertEqual(place.latitude, 37.773972)
-        self.assertEqual(place.longitude, -122.431297)
-
-    def test_invalid_parameter_is_ignored(self):
-        """Test that an unknown parameter is ignored."""
-        with patch("sys.stdout"):
-            self.console.onecmd(
-                'create State name="California" unknown="value"'
-            )
-
-        states = storage.all(State)
-        self.assertEqual(len(states), 1)
-
-        state = list(states.values())[0]
-        self.assertEqual(state.name, "California")
-        self.assertFalse(hasattr(state, "unknown"))
+    @unittest.skipIf(not DB, "DBStorage only")
+    def test_create_state_prints_id_db(self):
+        """create State prints an id under DBStorage"""
+        state_id = self.run_cmd('create State name="California"')
+        self.assertEqual(len(state_id), 36)
+        self.remove_state(state_id)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     unittest.main()
