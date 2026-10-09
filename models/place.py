@@ -1,21 +1,17 @@
 #!/usr/bin/python3
 """Place module"""
 from os import getenv
-from sqlalchemy import (Column, Float, ForeignKey, Integer, MetaData,
-                        String, Table)
+from sqlalchemy import Column, Float, ForeignKey, Integer, String, Table
 from sqlalchemy.orm import relationship
 from models.base_model import BaseModel, Base
 
 place_amenity = Table(
     'place_amenity',
-    MetaData(),
-    Column('place_id', String(60),
-           ForeignKey('places.id', onupdate='CASCADE', ondelete='CASCADE'),
-           primary_key=True),
-    Column('amenity_id', String(60),
-           ForeignKey('amenities.id', onupdate='CASCADE',
-                      ondelete='CASCADE'),
-           primary_key=True)
+    Base.metadata,
+    Column('place_id', String(60), ForeignKey('places.id'),
+           primary_key=True, nullable=False),
+    Column('amenity_id', String(60), ForeignKey('amenities.id'),
+           primary_key=True, nullable=False)
 )
 
 
@@ -36,6 +32,9 @@ class Place(BaseModel, Base):
     if getenv("HBNB_TYPE_STORAGE") == "db":
         reviews = relationship("Review", backref="place",
                                cascade="all, delete")
+        amenities = relationship("Amenity", secondary="place_amenity",
+                                 viewonly=False,
+                                 overlaps="place_amenities")
     else:
         @property
         def reviews(self):
@@ -44,3 +43,22 @@ class Place(BaseModel, Base):
             from models.review import Review
             return [r for r in models.storage.all(Review).values()
                     if r.place_id == self.id]
+
+        @property
+        def amenities(self):
+            """FileStorage getter: Amenity instances in amenity_ids"""
+            import models
+            from models.amenity import Amenity
+            ids = self.__dict__.get("amenity_ids", [])
+            return [a for a in models.storage.all(Amenity).values()
+                    if a.id in ids]
+
+        @amenities.setter
+        def amenities(self, obj):
+            """FileStorage setter: accepts only Amenity objects"""
+            from models.amenity import Amenity
+            if isinstance(obj, Amenity):
+                if "amenity_ids" not in self.__dict__:
+                    self.amenity_ids = []
+                if obj.id not in self.amenity_ids:
+                    self.amenity_ids.append(obj.id)
