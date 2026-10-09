@@ -49,8 +49,12 @@ class DBStorage:
         self.__session.add(obj)
 
     def save(self):
-        """Commit the current session"""
-        self.__session.commit()
+        """Commit the current session, rolling back on error"""
+        try:
+            self.__session.commit()
+        except Exception:
+            self.__session.rollback()
+            raise
 
     def delete(self, obj=None):
         """Delete obj from the current session"""

@@ -106,7 +106,7 @@ class HBNBCommand(cmd.Cmd):
 
         return parsed
 
-        def do_create(self, args):
+    def do_create(self, args):
         """Create an object: create <Class> <key=value> ..."""
         if not args:
             print("** class name missing **")
@@ -131,9 +131,12 @@ class HBNBCommand(cmd.Cmd):
                     except ValueError:
                         continue
             kwargs[key] = value
-        instance = HBNBCommand.classes[parts[0]](**kwargs)
-        instance.save()
-        print(instance.id)
+        try:
+            instance = HBNBCommand.classes[parts[0]](**kwargs)
+            instance.save()
+            print(instance.id)
+        except Exception:
+            return
 
     def do_show(self, args):
         """Print the string representation of an instance."""
