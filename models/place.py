@@ -1,7 +1,9 @@
 #!/usr/bin/python3
 """Place module"""
+from os import getenv
 from sqlalchemy import (Column, Float, ForeignKey, Integer, MetaData,
                         String, Table)
+from sqlalchemy.orm import relationship
 from models.base_model import BaseModel, Base
 
 place_amenity = Table(
@@ -30,3 +32,15 @@ class Place(BaseModel, Base):
     price_by_night = Column(Integer, nullable=False, default=0)
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
+
+    if getenv("HBNB_TYPE_STORAGE") == "db":
+        reviews = relationship("Review", backref="place",
+                               cascade="all, delete")
+    else:
+        @property
+        def reviews(self):
+            """FileStorage relationship: reviews linked to this place"""
+            import models
+            from models.review import Review
+            return [r for r in models.storage.all(Review).values()
+                    if r.place_id == self.id]
