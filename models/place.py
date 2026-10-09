@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 """Place Module for HBNB project."""
 from sqlalchemy import Column, Float, ForeignKey, Integer, String, Table
+from sqlalchemy import MetaData
 from sqlalchemy.orm import relationship
 
 from models.base_model import BaseModel
@@ -8,7 +9,7 @@ from models.base_model import BaseModel
 
 place_amenity = Table(
     'place_amenity',
-    BaseModel.metadata,
+    MetaData(),
     Column(
         'place_id',
         String(60),

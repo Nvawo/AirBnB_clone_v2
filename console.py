@@ -106,46 +106,34 @@ class HBNBCommand(cmd.Cmd):
 
         return parsed
 
-    def do_create(self, args):
-        """Create an object with optional attributes."""
+        def do_create(self, args):
+        """Create an object: create <Class> <key=value> ..."""
         if not args:
             print("** class name missing **")
             return
-
-        parsed = self._parse_create_arguments(args)
-
-        if not parsed:
-            print("** class name missing **")
-            return
-
-        class_name = parsed[0]
-
-        if class_name not in HBNBCommand.classes:
+        parts = args.split()
+        if parts[0] not in HBNBCommand.classes:
             print("** class doesn't exist **")
             return
-
-        attributes = {}
-
-        for parameter in parsed[1:]:
-            key, value = parameter
-            attributes[key] = value
-
-        try:
-            new_instance = HBNBCommand.classes[class_name](
-                **attributes
-            )
-        except (TypeError, KeyError):
-            new_instance = HBNBCommand.classes[class_name]()
-
-            for key, value in attributes.items():
+        kwargs = {}
+        for param in parts[1:]:
+            if "=" not in param:
+                continue
+            key, value = param.split("=", 1)
+            if len(value) >= 2 and value[0] == '"' and value[-1] == '"':
+                value = value[1:-1].replace('\\"', '"').replace("_", " ")
+            else:
                 try:
-                    setattr(new_instance, key, value)
-                except (AttributeError, TypeError):
-                    continue
-
-        storage.new(new_instance)
-        storage.save()
-        print(new_instance.id)
+                    value = int(value)
+                except ValueError:
+                    try:
+                        value = float(value)
+                    except ValueError:
+                        continue
+            kwargs[key] = value
+        instance = HBNBCommand.classes[parts[0]](**kwargs)
+        instance.save()
+        print(instance.id)
 
     def do_show(self, args):
         """Print the string representation of an instance."""
