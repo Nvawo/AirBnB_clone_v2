@@ -31,8 +31,9 @@ def do_deploy(archive_path):
             "mkdir -p {}/".format(release),
             "tar -xzf {} -C {}/".format(tmp_path, release),
             "rm {}".format(tmp_path),
-            "mv {0}/web_static/* {0}/".format(release),
-            "rm -rf {}/web_static".format(release),
+            "if [ -d {0}/web_static ]; then "
+            "mv {0}/web_static/* {0}/ && rm -rf {0}/web_static; fi".format(
+                release),
             "rm -rf /data/web_static/current",
             "ln -s {}/ /data/web_static/current".format(release),
         ]
