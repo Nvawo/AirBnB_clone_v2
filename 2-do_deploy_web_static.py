@@ -3,7 +3,7 @@
 from fabric.api import env, put, run, settings
 import os
 
-env.hosts = ['WEB_01_IP', 'WEB_02_IP']
+env.hosts = env.hosts or ['PUT_WEB_01_IP_HERE', 'PUT_WEB_02_IP_HERE']
 
 
 def do_deploy(archive_path):
